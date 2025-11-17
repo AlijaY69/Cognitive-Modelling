@@ -175,7 +175,7 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
     trialTime = 0
     locColor = []
     vals = numpy.random.normal(loc=wordsPerMinuteMean, scale=wordsPerMinuteSD,size=1)[0]
-    timePerWord = vals/60*1000
+    timePerWord = 60000/vals
 
     if interleaving == "word":
         locPos.append(currentPos)
@@ -216,15 +216,6 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
             time += 50
 
 
-        plt.scatter(locTime, locPos, c=locColor)
-        absPos = [abs(i) for i in locPos]
-        plt.ylabel("Lateral position (m)") ## Copy-paste Jotan
-        plt.xlabel("Time (ms)")
-        plt.title(f"Total trial time = {trialTime}; Mean position on the road (Absolute) = {numpy.mean(absPos)}; Max position on the road (Absolute) = {max(absPos)}")
-        plt.show()
-
-
-
     elif interleaving == "sentence":
         locPos.append(currentPos)
         locColor.append("blue")
@@ -260,29 +251,90 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
             time += 50
 
 
-        plt.scatter(locTime, locPos, c=locColor)
-        absPos = [abs(i) for i in locPos]
-        plt.ylabel("Lateral position (m)")
-        plt.xlabel("Time (ms)")
-        plt.title(f"Total trial time = {trialTime}; Mean position on the road (Absolute) = {numpy.mean(absPos)}; Max position on the road (Absolute) = {max(absPos)}")
-        plt.show()
 
     elif interleaving == "drivingOnly":
+        locPos.append(currentPos)
+        locColor.append("blue")
+
+        for i in range(nrSentences):
+            for j in range(nrWordsPerSentence):
+                if j == 0:
+                    typingTime = retrievalTimeSentence + timePerWord + retrievalTimeWord ## Different than Jotan
+                else:
+                    typingTime = timePerWord + retrievalTimeWord
+
+                trialTime += typingTime
+
+                if not (i == nrSentences - 1 and j == nrWordsPerSentence - 1): ## Different than Jotan
+                    for l in range(nrSteeringMovementsWhenSteering):
+                        steer = vehicleUpdateActiveSteering(currentPos)
+                        for m in range(5): 
+                            currentPos += steer/20
+                            locPos.append(currentPos)
+                            locColor.append("blue")
+                        trialTime += steeringUpdateTime
+
+        
+
+        locTime = [] ## Copy-paste Jotan
+        time = 0
+        for pos in locPos:
+            locTime.append(time)
+            time += 50
+
     
     elif interleaving == "none":
+        locPos.append(currentPos)
+        locColor.append("blue")
+
+        for i in range(nrSentences):
+            for j in range(nrWordsPerSentence):
+                if j == 0:
+                    typingTime = retrievalTimeSentence + timePerWord + retrievalTimeWord ## Different than Jotan
+                else:
+                    typingTime = timePerWord + retrievalTimeWord
+
+                trialTime += typingTime
+
+                numOfUpdates = int(numpy.floor(typingTime/timeStepPerDriftUpdate)) ## Different floor than Jotan
+
+                for k in range(numOfUpdates):
+                    drift = vehicleUpdateNotSteering()/20
+                    currentPos += drift
+                    locPos.append(currentPos)
+                    locColor.append("red")
+        
+
+        locTime = [] ## Copy-paste Jotan
+        time = 0
+        for pos in locPos:
+            locTime.append(time)
+            time += 50
+
 
 
     else:
         return 0
 
 	
-runTrial()
+runTrial(17, 10, 4, "drivingOnly")
 
 
 
 ### function to run multiple simulations. Needs to be defined by students (section 3 of assignment)
-def runSimulations(nrSims = 100):
-    print("hello world")
+def runSimulations(nrSims = 3):
+    totalTime = []
+    meanDeviation = []
+    maxDeviation = []
+    Condition = []
+    nrSentences = 10
+    nrSteeringMovementsWhenSteering = 4
+    for i in range(nrSims):
+        for cond in ["word", "sentence", "drivingOnly", "none"]
+            nrWordsPerSentence = random.uniform(15, 16, 17, 18, 19, 20)
+            runTrial(nrWordsPerSentence, nrSentences, nrSteeringMovementsWhenSteering, cond)
+
+        
 
 
 
