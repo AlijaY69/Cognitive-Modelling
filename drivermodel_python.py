@@ -216,6 +216,10 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
             time += 50
 
 
+        absPos = [abs(i) for i in locPos]
+        return trialTime, numpy.mean(absPos), max(absPos)
+
+
     elif interleaving == "sentence":
         locPos.append(currentPos)
         locColor.append("blue")
@@ -251,6 +255,9 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
             time += 50
 
 
+        absPos = [abs(i) for i in locPos]
+        return trialTime, numpy.mean(absPos), max(absPos)
+
 
     elif interleaving == "drivingOnly":
         locPos.append(currentPos)
@@ -281,6 +288,9 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
         for pos in locPos:
             locTime.append(time)
             time += 50
+            
+        absPos = [abs(i) for i in locPos]
+        return trialTime, numpy.mean(absPos), max(absPos)
 
     
     elif interleaving == "none":
@@ -312,30 +322,97 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
             time += 50
 
 
+        absPos = [abs(i) for i in locPos]
+        return trialTime, numpy.mean(absPos), max(absPos)
+
 
     else:
         return 0
 
 	
-runTrial(17, 10, 4, "drivingOnly")
-
 
 
 ### function to run multiple simulations. Needs to be defined by students (section 3 of assignment)
-def runSimulations(nrSims = 3):
+def runSimulations(nrSims = 100):
     totalTime = []
     meanDeviation = []
     maxDeviation = []
     Condition = []
+    markers = []
+    trackerWord = 0
+    trackerSent = 0
+    trackerDrive = 0
+    trackerNone = 0
+    timeWord = 0
+    timeSent = 0
+    timeDrive = 0
+    timeNone = 0
+    listWord = []
+    listSent = []
+    listDrive = []
+    listNone = []
+    listWordTime = []
+    listSentTime = []
+    listDriveTime = []
+    listNoneTime = []
     nrSentences = 10
     nrSteeringMovementsWhenSteering = 4
     for i in range(nrSims):
-        for cond in ["word", "sentence", "drivingOnly", "none"]
-            nrWordsPerSentence = random.uniform(15, 16, 17, 18, 19, 20)
-            runTrial(nrWordsPerSentence, nrSentences, nrSteeringMovementsWhenSteering, cond)
+        for cond, mark in [("word", "s"), ("sentence", "^"), ("drivingOnly", "p"), ("none", "o")]:
+            nrWordsPerSentence = numpy.random.randint(15, 21)
+            trialTime, meanDev, maxDev = runTrial(nrWordsPerSentence, nrSentences, nrSteeringMovementsWhenSteering, cond)
+            totalTime.append(trialTime)
+            meanDeviation.append(meanDev)
+            maxDeviation.append(maxDev)
+            Condition.append(cond)
+            markers.append(mark)
+            
+    
+    for j in range(len(totalTime)):
+        plt.scatter(totalTime[j], maxDeviation[j], marker = markers[j], c ="gray")
+        if markers[j] == "s":
+            trackerWord += maxDeviation[j]
+            timeWord += totalTime[j]
+            listWord.append(maxDeviation[j])
+            listWordTime.append(totalTime[j])
+        elif markers[j] == "^":
+            trackerSent += maxDeviation[j]
+            timeSent += totalTime[j]
+            listSent.append(maxDeviation[j])
+            listSentTime.append(totalTime[j])
+        elif markers[j] == "p":
+            trackerDrive += maxDeviation[j]
+            timeDrive += totalTime[j]
+            listDrive.append(maxDeviation[j])
+            listDriveTime.append(totalTime[j])
+        elif markers[j] == "o":
+            trackerNone += maxDeviation[j]
+            timeNone += totalTime[j]
+            listNone.append(maxDeviation[j])
+            listNoneTime.append(totalTime[j])
+    
+
+    listOfMeans = [trackerWord/nrSims, trackerSent/nrSims, trackerDrive/nrSims, trackerNone/nrSims]
+    listOfTimes = [timeWord/nrSims, timeSent/nrSims, timeDrive/nrSims, timeNone/nrSims]
+    listOfStdDevs = [numpy.std(listWord), numpy.std(listSent), numpy.std(listDrive), numpy.std(listNone)]
+    listOfStdTimes = [numpy.std(listWordTime), numpy.std(listSentTime), numpy.std(listDriveTime), numpy.std(listNoneTime)]
+   
+    condition_colors = ["blue", "red", "green", "black"]
+    condition_labels = ["word", "sentence", "drivingOnly", "none"]
+    condition_markers = ["s", "^", "p", "o"]
+    
+    for k in range(len(listOfMeans)):
+        plt.scatter(listOfTimes[k], listOfMeans[k], marker=condition_markers[k], c=condition_colors[k], s=200, label=condition_labels[k])
+        plt.errorbar(listOfTimes[k], listOfMeans[k], xerr = listOfStdTimes[k], yerr = listOfStdDevs[k], c=condition_colors[k])
+        
+    plt.ylabel("Maximum Lateral Deviation (m)")
+    plt.xlabel("Trial Time (ms)")
+    plt.ticklabel_format(style='plain', axis='x', useOffset=False)
+    plt.legend()
+    plt.show()
 
         
-
+runSimulations()
 
 
 	
