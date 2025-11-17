@@ -14,7 +14,8 @@
 ### import packages
 ###
 
-import numpy
+import numpy 
+import matplotlib.pyplot as plt
 
 
 ###
@@ -133,10 +134,17 @@ def velocityCheckForVectors(velocityVectors):
 ## Function to determine lateral velocity (controlled with steering wheel) based on where car is currently positioned. See Janssen & Brumby (2010) for more detailed explanation.
 ## Lateral velocity update depends on current position in lane. Intuition behind function: the further away you are, the stronger the correction will be that a human makes
 def vehicleUpdateActiveSteering(LD):
-
-	latVel = 0.2617 * LD*LD + 0.0233 * LD - 0.022
-	returnValue = velocityCheckForVectors(latVel)
-	return returnValue ### in m/s
+    """
+    LD: lane deviation
+    how much you steer when actively steering
+    """
+    latVel = 0.2617 * LD*LD + 0.0233 * LD - 0.022
+    returnValue = velocityCheckForVectors(latVel)
+    
+    if LD > 0: ## Copy-paste Jotan
+        returnValue *= -1
+    
+    return returnValue ### in m/s
 	
 
 
@@ -160,19 +168,115 @@ def vehicleUpdateNotSteering():
 ### Function to run a trial. Needs to be defined by students (section 2 and 3 of assignment)
 
 def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering=2, interleaving="word"): 
+    
     resetParameters()
-    locPos = np.array()
-    trialTime: int
-    locColor: string
-    if interleaving = "word":
-        trialtime = 0
+    locPos = []
+    currentPos = startingPositionInLane
+    trialTime = 0
+    locColor = []
+    vals = numpy.random.normal(loc=wordsPerMinuteMean, scale=wordsPerMinuteSD,size=1)[0]
+    timePerWord = vals/60*1000
+
+    if interleaving == "word":
+        locPos.append(currentPos)
+        locColor.append("blue")
+
+        for i in range(nrSentences):
+            for j in range(nrWordsPerSentence):
+                if j == 0:
+                    typingTime = retrievalTimeSentence + timePerWord + retrievalTimeWord ## Different than Jotan
+                else:
+                    typingTime = timePerWord + retrievalTimeWord
+
+                trialTime += typingTime
+
+                numOfUpdates = int(numpy.floor(typingTime/timeStepPerDriftUpdate)) ## Different floor than Jotan
+
+                for k in range(numOfUpdates):
+                    drift = vehicleUpdateNotSteering()/20
+                    currentPos += drift
+                    locPos.append(currentPos)
+                    locColor.append("red")
+
+                if not (i == nrSentences - 1 and j == nrWordsPerSentence - 1): ## Different than Jotan
+                    for l in range(nrSteeringMovementsWhenSteering):
+                        steer = vehicleUpdateActiveSteering(currentPos)
+                        for m in range(5): 
+                            currentPos += steer/20
+                            locPos.append(currentPos)
+                            locColor.append("blue")
+                        trialTime += steeringUpdateTime
+
+        
+
+        locTime = [] ## Copy-paste Jotan
+        time = 0
+        for pos in locPos:
+            locTime.append(time)
+            time += 50
+
+
+        plt.scatter(locTime, locPos, c=locColor)
+        absPos = [abs(i) for i in locPos]
+        plt.ylabel("Lateral position (m)") ## Copy-paste Jotan
+        plt.xlabel("Time (ms)")
+        plt.title(f"Total trial time = {trialTime}; Mean position on the road (Absolute) = {numpy.mean(absPos)}; Max position on the road (Absolute) = {max(absPos)}")
+        plt.show()
+
+
+
+    elif interleaving == "sentence":
+        locPos.append(currentPos)
+        locColor.append("blue")
+
+        for i in range(nrSentences):
+            typingTime = retrievalTimeSentence + timePerWord*nrWordsPerSentence
+
+            trialTime += typingTime
+
+            numOfUpdates = int(numpy.floor(typingTime/timeStepPerDriftUpdate))
+
+            for k in range(numOfUpdates):
+                drift = vehicleUpdateNotSteering()/20
+                currentPos += drift
+                locPos.append(currentPos)
+                locColor.append("red")
+
+            if not (i == nrSentences - 1): ## Different than Jotan
+                for l in range(nrSteeringMovementsWhenSteering):
+                    steer = vehicleUpdateActiveSteering(currentPos)
+                    for m in range(5): 
+                        currentPos += steer/20
+                        locPos.append(currentPos)
+                        locColor.append("blue")
+                    trialTime += steeringUpdateTime
+
+        
+
+        locTime = []
+        time = 0
+        for pos in locPos:
+            locTime.append(time)
+            time += 50
+
+
+        plt.scatter(locTime, locPos, c=locColor)
+        absPos = [abs(i) for i in locPos]
+        plt.ylabel("Lateral position (m)")
+        plt.xlabel("Time (ms)")
+        plt.title(f"Total trial time = {trialTime}; Mean position on the road (Absolute) = {numpy.mean(absPos)}; Max position on the road (Absolute) = {max(absPos)}")
+        plt.show()
+
+    elif interleaving == "drivingOnly":
+    
+    elif interleaving == "none":
+
 
     else:
         return 0
 
 	
-	
-
+runTrial()
 
 
 
