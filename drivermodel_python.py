@@ -176,6 +176,7 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
     locColor = []
     vals = numpy.random.normal(loc=wordsPerMinuteMean, scale=wordsPerMinuteSD,size=1)[0]
     timePerWord = 60000/vals
+    print(timePerWord)
 
     if interleaving == "word":
         locPos.append(currentPos)
@@ -262,24 +263,20 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
     elif interleaving == "drivingOnly":
         locPos.append(currentPos)
         locColor.append("blue")
-
+        
         for i in range(nrSentences):
             for j in range(nrWordsPerSentence):
                 if j == 0:
-                    typingTime = retrievalTimeSentence + timePerWord + retrievalTimeWord ## Different than Jotan
+                    trialTime += retrievalTimeSentence + timePerWord
                 else:
-                    typingTime = timePerWord + retrievalTimeWord
+                    trialTime += timePerWord
 
-                trialTime += typingTime
-
-                if not (i == nrSentences - 1 and j == nrWordsPerSentence - 1): ## Different than Jotan
-                    for l in range(nrSteeringMovementsWhenSteering):
-                        steer = vehicleUpdateActiveSteering(currentPos)
-                        for m in range(5): 
-                            currentPos += steer/20
-                            locPos.append(currentPos)
-                            locColor.append("blue")
-                        trialTime += steeringUpdateTime
+        for cycle in range(int(trialTime/50)):
+            steeringVelocity = vehicleUpdateActiveSteering(currentPos)
+            for _ in range(5):                                  # The position needs to be updated every 50 ms
+                currentPos += steeringVelocity/20               # /20 bc the function returns lateral speed in m/s, so for 50 ms its that /20
+                locPos.append(currentPos)
+                locColor.append("blue")
 
         
 
@@ -295,14 +292,14 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
     
     elif interleaving == "none":
         locPos.append(currentPos)
-        locColor.append("blue")
+        locColor.append("red")
 
         for i in range(nrSentences):
             for j in range(nrWordsPerSentence):
                 if j == 0:
-                    typingTime = retrievalTimeSentence + timePerWord + retrievalTimeWord ## Different than Jotan
+                    typingTime = retrievalTimeSentence + timePerWord ## Different than Jotan
                 else:
-                    typingTime = timePerWord + retrievalTimeWord
+                    typingTime = timePerWord
 
                 trialTime += typingTime
 
@@ -326,6 +323,54 @@ def runTrial(nrWordsPerSentence =5,nrSentences=3,nrSteeringMovementsWhenSteering
         return trialTime, numpy.mean(absPos), max(absPos)
 
 
+    elif interleaving == "batch":
+        locPos.append(currentPos)
+        locColor.append("blue")
+
+        batchFull = 3
+        retrievalTimeBatch = 250       # Halfway between retrievalTimeWord and retrievalTimeSentence 
+
+        for sentence in range(nrSentences):
+            batch = 0
+            for word in range(nrWordsPerSentence):   
+                batch += 1
+                
+                # Calculate how long we take to text
+                if word == 0:
+                    addtrialTime: float = retrievalTimeSentence + retrievalTimeBatch + timePerWord
+                elif batch == 1:
+                    addtrialTime: float = retrievalTimeBatch + timePerWord
+                else:
+                    addtrialTime: float = timePerWord   
+                trialTime += addtrialTime
+
+                # For every rounded 50 ms we do one step of drift
+                numOfUpdates = int(numpy.floor(addtrialTime/timeStepPerDriftUpdate))
+                for _ in range(numOfUpdates):
+                    currentPos += vehicleUpdateNotSteering()/20            
+                    locPos.append(currentPos)
+                    locColor.append("red")
+                         
+                if batch == batchFull or word == nrWordsPerSentence - 1:
+                    if not (sentence == nrSentences - 1 and word == nrWordsPerSentence - 1):
+                        for _ in range(nrSteeringMovementsWhenSteering):        
+                            steeringVelocity = vehicleUpdateActiveSteering(currentPos)
+                            for _ in range(5):                               
+                                currentPos += steeringVelocity/20               
+                                locPos.append(currentPos)
+                                locColor.append("blue")
+                                trialTime += 50
+                        batch = 0 
+        timeList = []
+        time = 0
+        for i in locPos:
+            timeList.append(time)
+            time += 50
+        absPos = [abs(i) for i in locPos]
+
+        return trialTime, numpy.mean(absPos), max(absPos)
+
+
     else:
         return 0
 
@@ -343,22 +388,26 @@ def runSimulations(nrSims = 100):
     trackerSent = 0
     trackerDrive = 0
     trackerNone = 0
+    trackerBatch = 0
     timeWord = 0
     timeSent = 0
     timeDrive = 0
     timeNone = 0
+    timeBatch = 0
     listWord = []
     listSent = []
     listDrive = []
     listNone = []
+    listBatch = []
     listWordTime = []
     listSentTime = []
     listDriveTime = []
     listNoneTime = []
+    listBatchTime = []
     nrSentences = 10
     nrSteeringMovementsWhenSteering = 4
     for i in range(nrSims):
-        for cond, mark in [("word", "s"), ("sentence", "^"), ("drivingOnly", "p"), ("none", "o")]:
+        for cond, mark in [("word", "s"), ("sentence", "^"), ("drivingOnly", "p"), ("none", "o"), ("batch", "x")]:
             nrWordsPerSentence = numpy.random.randint(15, 21)
             trialTime, meanDev, maxDev = runTrial(nrWordsPerSentence, nrSentences, nrSteeringMovementsWhenSteering, cond)
             totalTime.append(trialTime)
@@ -390,16 +439,21 @@ def runSimulations(nrSims = 100):
             timeNone += totalTime[j]
             listNone.append(maxDeviation[j])
             listNoneTime.append(totalTime[j])
+        elif markers[j] == "x":
+            trackerBatch += maxDeviation[j]
+            timeBatch += totalTime[j]
+            listBatch.append(maxDeviation[j])
+            listBatchTime.append(totalTime[j])
     
 
-    listOfMeans = [trackerWord/nrSims, trackerSent/nrSims, trackerDrive/nrSims, trackerNone/nrSims]
-    listOfTimes = [timeWord/nrSims, timeSent/nrSims, timeDrive/nrSims, timeNone/nrSims]
-    listOfStdDevs = [numpy.std(listWord), numpy.std(listSent), numpy.std(listDrive), numpy.std(listNone)]
-    listOfStdTimes = [numpy.std(listWordTime), numpy.std(listSentTime), numpy.std(listDriveTime), numpy.std(listNoneTime)]
+    listOfMeans = [trackerWord/nrSims, trackerSent/nrSims, trackerDrive/nrSims, trackerNone/nrSims, trackerBatch/nrSims]
+    listOfTimes = [timeWord/nrSims, timeSent/nrSims, timeDrive/nrSims, timeNone/nrSims, timeBatch/nrSims]
+    listOfStdDevs = [numpy.std(listWord), numpy.std(listSent), numpy.std(listDrive), numpy.std(listNone), numpy.std(listBatch)]
+    listOfStdTimes = [numpy.std(listWordTime), numpy.std(listSentTime), numpy.std(listDriveTime), numpy.std(listNoneTime), numpy.std(listBatchTime)]
    
-    condition_colors = ["blue", "red", "green", "black"]
-    condition_labels = ["word", "sentence", "drivingOnly", "none"]
-    condition_markers = ["s", "^", "p", "o"]
+    condition_colors = ["blue", "red", "green", "black", "yellow"]
+    condition_labels = ["word", "sentence", "drivingOnly", "none", "batch"]
+    condition_markers = ["s", "^", "p", "o", "x"]
     
     for k in range(len(listOfMeans)):
         plt.scatter(listOfTimes[k], listOfMeans[k], marker=condition_markers[k], c=condition_colors[k], s=200, label=condition_labels[k])
@@ -412,7 +466,7 @@ def runSimulations(nrSims = 100):
     plt.show()
 
         
-runSimulations()
+runTrial()
 
 
 	

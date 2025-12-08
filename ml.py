@@ -1,7 +1,7 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
-from scipy.stats import sem, ttest_ind
+from scipy.stats import sem, ttest_ind, ttest_rel
 
 labels = pd.read_csv("CategoryLabels.txt", sep = " ")
 vectors = pd.read_csv("CategoryVectors.txt")
@@ -45,13 +45,14 @@ avgs = [avg_anim, avg_inanim]
 
 sems = [sem(animate_avg), sem(inanimate_avg)]
 
+"""
 plt.bar(cats, avgs)
 plt.errorbar(cats, avgs, yerr=sems, ecolor = "red", fmt='none', capsize=5)
 plt.axhline(y=0, color='black', linestyle='-', linewidth=1)
 plt.title("A. Average Response Amplitude")
 plt.ylabel("Response Amplitude")
-##plt.show()
-
+plt.show()
+"""
 
 def pairedTTest(m, s, n):
     return(m/(s/np.sqrt(n)))
@@ -83,13 +84,14 @@ diffs = np.array(animate_voxels) - np.array(inanimate_voxels)
 
 diffsTwenty = diffs[:20]
 
-
+"""
 plt.bar(voxelRange, diffsTwenty)
 plt.xticks(voxelRange, voxelRange.astype(int))
 plt.axhline(y=0, color='black', linestyle='-', linewidth=1)
 plt.title("B. Animate minus Inanimate")
 plt.ylabel("Response Amplitude")
-## plt.show()
+plt.show()
+"""
 
 rdm_matrix = np.zeros((len(responses), len(responses)))
 
@@ -111,6 +113,9 @@ plt.colorbar()
 plt.title('A: RDM')
 plt.tight_layout()
 plt.show()
+
+
+"""
 
 animacy = vectors.iloc[:, 0].values  
 
@@ -169,33 +174,72 @@ ax.spines['right'].set_visible(False)
 
 plt.tight_layout()
 plt.show()
+"""
+
+## Neural Responses for S1
+responses = pd.read_csv("NeuralResponses_S1.txt")
+responses_df = pd.DataFrame(data=responses)
+rdm_s1 = np.zeros((len(responses), len(responses)))
+
+## RDM for S1
+for a in range(len(responses)):
+    for b in range(len(responses)):
+
+        response_a = responses_df.iloc[a].values
+        response_b = responses_df.iloc[b].values
+        
+
+        correlation = np.corrcoef(response_a, response_b)[0, 1]
+        rdm_s1[a][b] =  1 - correlation
+
+## Neural Responses for S2
+responses_two = pd.read_csv("NeuralResponses_S2.txt")
+responses_two_df = pd.DataFrame(data=responses_two)
+rdm_s2 = np.zeros((len(responses_two), len(responses_two)))
+
+## RDM for S2
+for a in range(len(responses_two)):
+    for b in range(len(responses_two)):
+
+        response_a = responses_two_df.iloc[a].values
+        response_b = responses_two_df.iloc[b].values
+        
+
+        correlation = np.corrcoef(response_a, response_b)[0, 1]
+        rdm_s2[a][b] =  1 - correlation
+
+upper_tri_indices = np.triu_indices(len(rdm_s1), k=1)
+
+## Unique pairs extraction
+s1_dissim = rdm_s1[upper_tri_indices]
+s2_dissim = rdm_s2[upper_tri_indices]
+
+## Correlation between S1 and S2 RDMs
+corr_rdms = np.corrcoef(s1_dissim, s2_dissim)[0, 1]
+print(f"\n(1) Correlation (all categories): {corr_rdms:.4f}")
+
+## Dissimilarity between S1 and S2 RDMs
+avg_dissimilarity = np.mean(np.abs(s1_dissim - s2_dissim))
+print(f"Average dissimilarity: {avg_dissimilarity:.4f}")
+
+## Paired t-test: are S1 and S2 dissimilarities significantly different?
+t_stat, p_value = ttest_rel(s1_dissim, s2_dissim)
+print(f"t-value: {t_stat:.4f}")
+print(f"p-value: {p_value:.6e}")
 
 
 
-behavior_rdm = pd.read_csv("BehaviourRDM.csv", header=0, index_col=0).values
 
 
-plt.figure(figsize=(10, 8))
-plt.imshow(behavior_rdm, cmap='OrRd', vmin=0, vmax=0.3)  
-plt.colorbar(label='Behavioral Dissimilarity')
-plt.title('Behavioral RDM')
-plt.xlabel('Image')
-plt.ylabel('Image')
-plt.tight_layout()
-plt.show()
 
 
-upper_tri_indices = np.triu_indices(len(rdm_matrix), k=1)
 
 
-neural_all = rdm_matrix[upper_tri_indices]
-behavior_all = behavior_rdm[upper_tri_indices]
 
 
-corr_all = np.corrcoef(neural_all, behavior_all)[0, 1]
-print(f"\n(1) Correlation (all categories): {corr_all:.4f}")
 
 
+"""
 animate_pairs = []
 for i in range(44):  
     for j in range(i + 1, 44):  
@@ -219,3 +263,30 @@ behavior_inanimate = [behavior_rdm[i, j] for i, j in inanimate_pairs]
 corr_inanimate = np.corrcoef(neural_inanimate, behavior_inanimate)[0, 1]
 print(f"(3) Correlation (inanimate only): {corr_inanimate:.4f}")
 
+same_animacy_dissim = []
+diff_animacy_dissim = []
+
+for i in range(len(behavior_rdm)):
+    for j in range(i + 1, len(behavior_rdm)):  
+        if animacy_mask[i, j] == 0:  
+            same_animacy_dissim.append(behavior_rdm[i, j])
+        else: 
+            diff_animacy_dissim.append(behavior_rdm[i, j])
+
+same_animacy_dissim = np.array(same_animacy_dissim)
+diff_animacy_dissim = np.array(diff_animacy_dissim)
+
+
+t_stat, p_value = ttest_ind(same_animacy_dissim, diff_animacy_dissim)
+
+print(f"t-statistic: {t_stat:.4f}")
+print(f"p-value: {p_value:.6e}")
+
+mean_same_dissim = np.mean(same_animacy_dissim)
+mean_diff_dissim = np.mean(diff_animacy_dissim)
+sem_same_dissim = np.std(same_animacy_dissim, ddof=1) / np.sqrt(len(same_animacy_dissim))
+sem_diff_dissim = np.std(diff_animacy_dissim, ddof=1) / np.sqrt(len(diff_animacy_dissim))
+
+print(f"Same animacy: mean = {mean_same_dissim:.4f}, SEM = {sem_same_dissim:.4f}")
+print(f"Different animacy: mean = {mean_diff_dissim:.4f}, SEM = {sem_diff_dissim:.4f}")
+"""
